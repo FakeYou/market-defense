@@ -3,6 +3,7 @@
 var gulp = require('gulp');
 var browserify = require('gulp-browserify');
 var clean = require('gulp-clean');
+var connect = require('gulp-connect');
 
 gulp.task('clean', function() {
   gulp.src('./dist/*', { read: false })
@@ -29,6 +30,12 @@ gulp.task('watch', function() {
   gulp.watch('./lib/**/*.*', ['build']);
 });
 
+gulp.task('webserver', function() {
+  connect.server({
+    root: ['./dist']
+  });
+});
+
 gulp.task('build', ['clean', 'bundle', 'copyHtml', 'copyAssets']);
 
-gulp.task('default', ['watch']);
+gulp.task('default', ['watch', 'webserver']);

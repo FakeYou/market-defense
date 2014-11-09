@@ -6,7 +6,7 @@ var clean = require('gulp-clean');
 var connect = require('gulp-connect');
 
 gulp.task('clean', function() {
-  gulp.src('./dist/*', { read: false })
+  gulp.src('./dist/**/*.*', { read: false })
     .pipe(clean());
 });
 

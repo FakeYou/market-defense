@@ -21,34 +21,48 @@ window.addEventListener('load', function() {
 },{"./lib/states/boot":4,"./lib/states/play":5,"./lib/states/preload":6,"underscore":8}],2:[function(require,module,exports){
 'use strict';
 
-var Mob = function(game, name) {
+var Mob = function(game, market) {
   this.game = game;
-  this.name = name;
+  this.market = market;
 
   this.sprite = null;
+  this.path = null;
 };
 
 Mob.prototype.preload = function() {
-  this.game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+  this.game.load.spritesheet('dude', 'assets/dude.png', 32, 32);
 };
 
 Mob.prototype.create = function() {
-  this.sprite = this.game.add.sprite(32, 32, 'dude');
+  this.sprite = this.game.add.sprite(16, 176, 'dude');
+  this.sprite.anchor.set(0.5, 0.5);
   this.game.physics.arcade.enable(this.sprite);
-  this.sprite.body.collideWorldBounds = true;
+  // this.sprite.body.collideWorldBounds = true;
 
   this.sprite.animations.add('left', [0, 1, 2, 3], 10, true);
   this.sprite.animations.add('right', [5, 6, 7, 8], 10, true);
+
+  // this.target = Market.BUILDINGS.EXIT;
 };
 
 Mob.prototype.update = function() {
-  this.sprite.body.velocity.x += (Math.random() - 0.5) * 10;
+  if(this.path && this.path.length) {
+    var dx = this.path[0].x - this.sprite.x;
+    var dy = this.path[0].y - this.sprite.y;
 
-  if(this.sprite.body.velocity.x > 0) {
-    this.sprite.animations.play('right');
+    var dist = Math.sqrt(dx * dx + dy * dy);
+
+    if(dist > 0.5) {
+      this.sprite.body.velocity.x = dx / dist * 100;
+      this.sprite.body.velocity.y = dy / dist * 100;
+    }
+    else {
+      this.path.shift();
+    }
   }
   else {
-    this.sprite.animations.play('left');
+    this.sprite.body.velocity.x = 0;
+    this.sprite.body.velocity.y = 0;
   }
 };
 
@@ -58,9 +72,15 @@ module.exports = Mob;
 
 var _ = require('underscore');
 var EasyStar = require('easystarjs');
+var Mob = require('./entities/mob');
 
 var Market = function(game) {
   this.game = game;
+};
+
+Market.BUILDINGS = {
+  ENTRANCE: 1,
+  EXIT: 2
 };
 
 Market.prototype.preload = function() {
@@ -69,7 +89,7 @@ Market.prototype.preload = function() {
 };
 
 Market.prototype.create = function() {
-  var self = this;
+  this.dirty = true;
 
   this.map = this.game.add.tilemap('dev');
   this.map.addTilesetImage('tileset');
@@ -77,55 +97,62 @@ Market.prototype.create = function() {
   this.background = this.map.createLayer('background');
   this.background.resizeWorld();
 
-  this.background.debug = true;
-
   this.easystar = new EasyStar.js();
   this.easystar.setAcceptableTiles([1]);
+  this.easystar.setGrid(_.map(this.background.layer.data, function(row) { return _.pluck(row, 'index'); }));
 
   this.entrance = _.findWhere(this.map.objects.triggers, { name: 'entrance' });
   this.exit = _.findWhere(this.map.objects.triggers, { name: 'exit' });
 
-  this.path = this.game.add.graphics(0, 0);
-  this.path.lineStyle(2, 0x0000FF, 1);
-  this.findPath();
+  this.mobs = [
+    new Mob(this.game, this)
+  ];
 
+  _.invoke(this.mobs, 'create');
+
+  var self = this;
   setTimeout(function() {
-    self.map.putTile(31, 7, 6, 'background');
-    self.findPath();
-  }, 3000);
+    self.map.putTile(1, 4, 8, 'background');
+    self.map.putTile(21, 2, 3, 'background');
+    self.dirty = true;
+  }, 5000);
 };
 
-Market.prototype.findPath = function() {
-  var self = this;
+Market.prototype.findPath = function(mob) {
+  console.log(this.background);
+  var start = this.background.getTileXY(mob.sprite.x, mob.sprite.y, new Phaser.Point());
+  var end = this.background.getTileXY(this.exit.x, this.exit.y, new Phaser.Point());
 
-  var grid = _.map(this.background.layer.data, function(row) {
-    return _.pluck(row, 'index');
-  });
+  this.easystar.findPath(start.x, start.y - 1, end.x, end.y - 1, function(path) {
+    path = _.map(path, function(node) {
+      node.x = node.x * 32 + 13;
+      node.y = node.y * 32 + 13;
+      return node;
+    });
 
-  this.easystar.setGrid(grid);
-
-  var entranceTile = this.map.getTileWorldXY(this.entrance.x, this.entrance.y, 32, 32, 'background');
-  var exitTile = this.map.getTileWorldXY(this.exit.x, this.exit.y, 32, 32, 'background');
-
-  this.easystar.findPath(entranceTile.x, entranceTile.y - 1, exitTile.x, exitTile.y - 1, function(path) {
-    if(path) {
-      self.path.moveTo(path[0].x * 32 + 16, path[0].y * 32 + 16);
-
-      for(var i = 0; i < path.length; i++) {
-        var node = path[i];
-
-        self.path.lineTo(node.x * 32 + 16, node.y * 32 + 16);
-      }
-    }
+    console.log(path);
+    mob.path = path;
   });
 };
 
 Market.prototype.update = function() {
   this.easystar.calculate();
+
+  for(var i = 0; i < this.mobs.length; i++) {
+    var mob = this.mobs[i];
+
+    if(this.dirty) {
+      this.findPath(mob);
+    }
+
+    mob.update();
+  }
+  
+  this.dirty = false;
 };
 
 module.exports = Market;
-},{"easystarjs":7,"underscore":8}],4:[function(require,module,exports){
+},{"./entities/mob":2,"easystarjs":7,"underscore":8}],4:[function(require,module,exports){
 'use strict';
 
 var Boot = function(game) {
@@ -145,7 +172,6 @@ module.exports = Boot;
 },{}],5:[function(require,module,exports){
 'use strict';
 
-var Mob = require('../entities/mob.js');
 var Market = require('../market.js');
 
 var Play = function(game) {
@@ -158,20 +184,16 @@ Play.prototype.preload = function() {
 };  
 
 Play.prototype.create = function() {
-  this.mob = new Mob(this.game, 'bob');
-  this.mob.create();
-
   this.market = new Market(this.game);
   this.market.create();
 };
 
 Play.prototype.update = function() {
-  this.mob.update();
   this.market.update();
 };
 
 module.exports = Play;
-},{"../entities/mob.js":2,"../market.js":3}],6:[function(require,module,exports){
+},{"../market.js":3}],6:[function(require,module,exports){
 'use strict';
 
 var Mob = require('../entities/mob.js');

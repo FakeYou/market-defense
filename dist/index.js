@@ -21,12 +21,16 @@ window.addEventListener('load', function() {
 },{"./lib/states/boot":4,"./lib/states/play":5,"./lib/states/preload":6,"underscore":8}],2:[function(require,module,exports){
 'use strict';
 
+var _ = require('underscore');
+
 var Mob = function(game, market) {
   this.game = game;
   this.market = market;
 
   this.sprite = null;
+  this.line = null;
   this.path = null;
+  this.tween = null;
 };
 
 Mob.prototype.preload = function() {
@@ -37,37 +41,38 @@ Mob.prototype.create = function() {
   this.sprite = this.game.add.sprite(16, 176, 'dude');
   this.sprite.anchor.set(0.5, 0.5);
   this.game.physics.arcade.enable(this.sprite);
-  // this.sprite.body.collideWorldBounds = true;
 
-  this.sprite.animations.add('left', [0, 1, 2, 3], 10, true);
-  this.sprite.animations.add('right', [5, 6, 7, 8], 10, true);
+  this.line = this.game.add.graphics(0, 0);
+  this.tween = this.game.add.tween(this.sprite);
 
-  // this.target = Market.BUILDINGS.EXIT;
+  // this.sprite.animations.add('left', [0, 1, 2, 3], 10, true);
+  // this.sprite.animations.add('right', [5, 6, 7, 8], 10, true);
 };
 
 Mob.prototype.update = function() {
-  if(this.path && this.path.length) {
-    var dx = this.path[0].x - this.sprite.x;
-    var dy = this.path[0].y - this.sprite.y;
-
-    var dist = Math.sqrt(dx * dx + dy * dy);
-
-    if(dist > 0.5) {
-      this.sprite.body.velocity.x = dx / dist * 100;
-      this.sprite.body.velocity.y = dy / dist * 100;
-    }
-    else {
-      this.path.shift();
-    }
-  }
-  else {
-    this.sprite.body.velocity.x = 0;
-    this.sprite.body.velocity.y = 0;
+  if(this.path && !this.tween.isRunning) {
+    this.tween = this.game.add.tween(this.sprite);
+    this.tween.to(this.path.shift(), 500, Phaser.Easing.Linear.None);
+    this.tween.start();
   }
 };
 
+Mob.prototype.setPath = function(path) {
+  var self = this;
+
+  this.path = path;
+
+  this.line.clear();
+  this.line.lineStyle(2, 0x0000FF, 1);
+
+  this.line.moveTo(path[0].x, path[0].y);
+  _.each(path, function(node) {
+    self.line.lineTo(node.x, node.y);
+  });
+};
+
 module.exports = Mob;
-},{}],3:[function(require,module,exports){
+},{"underscore":8}],3:[function(require,module,exports){
 'use strict';
 
 var _ = require('underscore');
@@ -113,30 +118,33 @@ Market.prototype.create = function() {
   var self = this;
   setTimeout(function() {
     self.map.putTile(1, 4, 8, 'background');
-    self.map.putTile(21, 2, 3, 'background');
+    self.map.putTile(51, 2, 3, 'background');
     self.dirty = true;
-  }, 5000);
+  }, 3000);
 };
 
 Market.prototype.findPath = function(mob) {
-  console.log(this.background);
   var start = this.background.getTileXY(mob.sprite.x, mob.sprite.y, new Phaser.Point());
   var end = this.background.getTileXY(this.exit.x, this.exit.y, new Phaser.Point());
 
-  this.easystar.findPath(start.x, start.y - 1, end.x, end.y - 1, function(path) {
+  this.easystar.findPath(start.x, start.y, end.x, end.y - 1, function(path) {
+    console.log(path.length);
     path = _.map(path, function(node) {
-      node.x = node.x * 32 + 13;
-      node.y = node.y * 32 + 13;
+      node.x = node.x * 32 + 16;
+      node.y = node.y * 32 + 16;
       return node;
     });
 
-    console.log(path);
-    mob.path = path;
+    mob.setPath(path);
   });
 };
 
 Market.prototype.update = function() {
   this.easystar.calculate();
+
+  if(this.dirty) {
+    this.easystar.setGrid(_.map(this.background.layer.data, function(row) { return _.pluck(row, 'index'); }));
+  }
 
   for(var i = 0; i < this.mobs.length; i++) {
     var mob = this.mobs[i];

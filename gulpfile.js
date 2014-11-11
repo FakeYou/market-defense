@@ -4,6 +4,7 @@ var gulp = require('gulp');
 var browserify = require('gulp-browserify');
 var clean = require('gulp-clean');
 var connect = require('gulp-connect');
+var gutil = require('gulp-util');
 
 gulp.task('clean', function() {
   gulp.src('./dist/**/*.*', { read: false })
@@ -22,7 +23,7 @@ gulp.task('copyHtml', function() {
 
 gulp.task('bundle', function() {
   gulp.src('./index.js', { read: false })
-    .pipe(browserify())
+    .pipe(browserify().on('error', gutil.log))
     .pipe(gulp.dest('./dist'));
 });
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" width="11" height="11" tilewidth="32" tileheight="32">
+ <tileset firstgid="1" name="tileset" tilewidth="32" tileheight="32">
+  <image source="../tileset.png" trans="ffffff" width="320" height="320"/>
+ </tileset>
+ <layer name="background" width="11" height="11">
+  <data encoding="base64" compression="zlib">
+   eJzjZmBg4CYBM2LBxmh8ZLXGSJgRC43NXEJqsZmHrpebgHnGaHq5cahFx/jci85GDwd8bsCnFpcbiMUASokHoA==
+  </data>
+ </layer>
+ <objectgroup name="triggers" width="11" height="11">
+  <object name="entrance" gid="32" x="0" y="192"/>
+  <object name="exit" gid="42" x="320" y="192"/>
+ </objectgroup>
+</map>
